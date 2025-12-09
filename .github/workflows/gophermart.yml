@@ -28,7 +28,13 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
+
+      - name: Set working dir
+        run: |
+          echo "Workspace: ${{ github.workspace }}"
+          ls -la
+        working-directory: ${{ github.workspace }}
 
       - name: Download autotests binaries
         uses: robinraju/release-downloader@v1.8
@@ -38,17 +44,22 @@ jobs:
           fileName: "*"
           out-file-path: .tools
           token: ${{ secrets.GITHUB_TOKEN }}
+        working-directory: ${{ github.workspace }}
 
       - name: Setup autotest binary
         run: |
-          chmod -R +x $GITHUB_WORKSPACE/.tools
-          mv $GITHUB_WORKSPACE/.tools/gophermarttest /usr/local/bin/gophermarttest
-          mv $GITHUB_WORKSPACE/.tools/random /usr/local/bin/random
+          chmod -R +x .tools
+          mv .tools/gophermarttest /usr/local/bin/gophermarttest
+          mv .tools/random /usr/local/bin/random
+        working-directory: ${{ github.workspace }}
 
       - name: Prepare binaries
         run: |
-          (cd cmd/gophermart && go build -buildvcs=false -o gophermart)
-          (cd cmd/accrual && chmod +x accrual_linux_amd64)
+          cd ${{ github.workspace }}/cmd/gophermart
+          go build -buildvcs=false -o gophermart
+          cd ${{ github.workspace }}/cmd/accrual
+          chmod +x accrual_linux_amd64
+        working-directory: ${{ github.workspace }}
 
       - name: Test
         run: |
@@ -62,3 +73,4 @@ jobs:
             -accrual-host=localhost \
             -accrual-port=$(random unused-port) \
             -accrual-database-uri="postgresql://postgres:postgres@postgres/praktikum?sslmode=disable"
+        working-directory: ${{ github.workspace }}
