@@ -48,23 +48,9 @@ func RegisterHandler(svc service.UserServiceInterface) gin.HandlerFunc {
 
 func LoginHandler(svc service.UserServiceInterface) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if c.ContentType() != "application/json" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid content type"})
-			return
-		}
-
-		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 1<<20)
-
 		var req models.RegisterRequest
-		decoder := json.NewDecoder(c.Request.Body)
-		decoder.DisallowUnknownFields()
-		if err := decoder.Decode(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request: " + err.Error()})
-			return
-		}
-
-		if req.Login == "" || req.Password == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "login and password cannot be empty"})
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
 			return
 		}
 
