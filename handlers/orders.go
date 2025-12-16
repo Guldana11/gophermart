@@ -86,9 +86,8 @@ func GetOrdersHandler(c *gin.Context) {
 		return
 	}
 
-	if len(orders) == 0 {
-		c.Status(http.StatusNoContent)
-		return
+	if orders == nil {
+		orders = []models.Order{}
 	}
 
 	c.JSON(http.StatusOK, orders)
