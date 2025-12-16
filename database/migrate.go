@@ -3,7 +3,6 @@ package database
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -13,7 +12,8 @@ import (
 
 func Migrate(db *pgxpool.Pool) {
 	migrationsPath := "./migrations"
-	files, err := ioutil.ReadDir(migrationsPath)
+
+	files, err := os.ReadDir(migrationsPath)
 	if err != nil {
 		log.Fatalf("failed to read migrations folder: %v", err)
 	}
