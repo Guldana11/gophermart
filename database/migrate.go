@@ -1,40 +1,52 @@
 package database
 
 import (
-	"context"
+	"database/sql"
 	"fmt"
-	"log"
-	"os"
 	"path/filepath"
 
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
+	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
-func Migrate(db *pgxpool.Pool) {
-	migrationsPath := "./migrations"
-
-	files, err := os.ReadDir(migrationsPath)
+func Migrate(dbURL string) error {
+	sqlDB, err := sql.Open("pgx", dbURL)
 	if err != nil {
-		log.Fatalf("failed to read migrations folder: %v", err)
+		return fmt.Errorf("failed to open database: %w", err)
+	}
+	defer sqlDB.Close()
+
+	driver, err := postgres.WithInstance(sqlDB, &postgres.Config{})
+	if err != nil {
+		return fmt.Errorf("failed to create migrate driver: %w", err)
 	}
 
-	ctx := context.Background()
+	relPath := "./migrations"
 
-	for _, file := range files {
-		if filepath.Ext(file.Name()) != ".sql" {
-			continue
-		}
-		path := filepath.Join(migrationsPath, file.Name())
-		sqlBytes, err := os.ReadFile(path)
-		if err != nil {
-			log.Fatalf("failed to read migration file %s: %v", path, err)
-		}
-
-		_, err = db.Exec(ctx, string(sqlBytes))
-		if err != nil {
-			log.Fatalf("failed to execute migration %s: %v", path, err)
-		}
-
-		fmt.Printf("migration %s applied\n", file.Name())
+	absPath, err := filepath.Abs(relPath)
+	if err != nil {
+		return fmt.Errorf("failed to get absolute migrations path: %w", err)
 	}
+
+	sourceURL := "file://" + absPath
+
+	fmt.Println("migration source:", sourceURL)
+
+	m, err := migrate.NewWithDatabaseInstance(
+		sourceURL,
+		"postgres",
+		driver,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create migrate instance: %w", err)
+	}
+
+	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+		return fmt.Errorf("migration failed: %w", err)
+	}
+
+	fmt.Println("Migrations applied successfully")
+	return nil
 }

@@ -6,13 +6,21 @@ import (
 
 	"github.com/Guldana11/gophermart/models"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func checkOrderExists(ctx context.Context, orderNumber string) (string, bool, error) {
+type OrderRepo struct {
+	db *pgxpool.Pool
+}
+
+func NewOrderRepo(db *pgxpool.Pool) *OrderRepo {
+	return &OrderRepo{db: db}
+}
+
+func (r *OrderRepo) CheckOrderExists(ctx context.Context, orderNumber string) (string, bool, error) {
 	var userID string
 
-	err := DB.QueryRow(
-		ctx,
+	err := r.db.QueryRow(ctx,
 		"SELECT user_id FROM orders WHERE number = $1",
 		orderNumber,
 	).Scan(&userID)
@@ -27,9 +35,8 @@ func checkOrderExists(ctx context.Context, orderNumber string) (string, bool, er
 	return userID, true, nil
 }
 
-func createOrder(ctx context.Context, order models.Order) error {
-	_, err := DB.Exec(
-		ctx,
+func (r *OrderRepo) CreateOrder(ctx context.Context, order models.Order) error {
+	_, err := r.db.Exec(ctx,
 		"INSERT INTO orders (user_id, number) VALUES ($1, $2)",
 		order.UserID,
 		order.Number,
@@ -37,11 +44,8 @@ func createOrder(ctx context.Context, order models.Order) error {
 	return err
 }
 
-var CheckOrderExists = checkOrderExists
-var CreateOrder = createOrder
-
-var GetOrdersByUser = func(ctx context.Context, userID string) ([]models.Order, error) {
-	rows, err := DB.Query(ctx,
+func (r *OrderRepo) GetOrdersByUser(ctx context.Context, userID string) ([]models.Order, error) {
+	rows, err := r.db.Query(ctx,
 		`SELECT number, status, accrual, uploaded_at 
          FROM orders 
          WHERE user_id=$1 
@@ -59,8 +63,6 @@ var GetOrdersByUser = func(ctx context.Context, userID string) ([]models.Order, 
 		}
 		orders = append(orders, o)
 	}
-	if len(orders) == 0 {
-		return nil, nil
-	}
+
 	return orders, nil
 }

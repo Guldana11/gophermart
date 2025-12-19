@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/Guldana11/gophermart/middleware"
 	"github.com/Guldana11/gophermart/models"
 	"github.com/Guldana11/gophermart/service"
 	"github.com/gin-gonic/gin"
@@ -16,7 +17,7 @@ func RegisterHandler(svc service.UserServiceInterface) gin.HandlerFunc {
 			return
 		}
 
-		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 1<<20) // 1MB
+		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 1<<20)
 
 		var req models.RegisterRequest
 		decoder := json.NewDecoder(c.Request.Body)
@@ -41,7 +42,13 @@ func RegisterHandler(svc service.UserServiceInterface) gin.HandlerFunc {
 			return
 		}
 
-		c.SetCookie("session_id", user.ID, 3600*24, "/", "", false, true)
+		token, err := middleware.GenerateJWT(user.ID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "cannot generate token"})
+			return
+		}
+
+		c.SetCookie("access_token", token, 3600*24, "/", "", false, true)
 		c.JSON(http.StatusOK, gin.H{"id": user.ID, "login": user.Login})
 	}
 }
@@ -60,7 +67,13 @@ func LoginHandler(svc service.UserServiceInterface) gin.HandlerFunc {
 			return
 		}
 
-		c.SetCookie("session_id", user.ID, 3600*24, "/", "", false, true)
+		token, err := middleware.GenerateJWT(user.ID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "cannot generate token"})
+			return
+		}
+
+		c.SetCookie("access_token", token, 3600*24, "/", "", false, true)
 		c.JSON(http.StatusOK, gin.H{"id": user.ID, "login": user.Login})
 	}
 }

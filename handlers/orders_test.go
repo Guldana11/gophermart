@@ -1,200 +1,180 @@
 package handlers
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
-	"time"
 
-	"github.com/Guldana11/gophermart/database"
 	"github.com/Guldana11/gophermart/models"
+	"github.com/Guldana11/gophermart/service"
 	"github.com/gin-gonic/gin"
-	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/assert"
 )
 
-func TestUploadOrderHandler(t *testing.T) {
+func TestOrderHandler_GetOrdersHandler(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	origCheck := database.CheckOrderExists
-	origCreate := database.CreateOrder
-
-	t.Cleanup(func() {
-		database.CheckOrderExists = origCheck
-		database.CreateOrder = origCreate
-	})
+	type fields struct {
+		orderService service.OrderService
+	}
 
 	tests := []struct {
 		name           string
+		fields         fields
+		userID         string
+		mockFunc       func(ctx context.Context, userID string) ([]models.Order, error)
+		expectedStatus int
+		expectedBody   []models.Order
+	}{
+		{
+			name:   "500 internal server error",
+			userID: "user1",
+			mockFunc: func(ctx context.Context, userID string) ([]models.Order, error) {
+				return nil, errors.New("unknown error")
+			},
+			expectedStatus: http.StatusInternalServerError,
+			expectedBody:   nil,
+		},
+		{
+			name:   "200 empty orders",
+			userID: "user1",
+			mockFunc: func(ctx context.Context, userID string) ([]models.Order, error) {
+				return nil, nil
+			},
+			expectedStatus: http.StatusOK,
+			expectedBody:   []models.Order{},
+		},
+		{
+			name:   "200 orders returned",
+			userID: "user1",
+			mockFunc: func(ctx context.Context, userID string) ([]models.Order, error) {
+				return []models.Order{
+					{UserID: userID, Number: "12345678903"},
+					{UserID: userID, Number: "79927398713"},
+				}, nil
+			},
+			expectedStatus: http.StatusOK,
+			expectedBody: []models.Order{
+				{UserID: "user1", Number: "12345678903"},
+				{UserID: "user1", Number: "79927398713"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			w := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(w)
+			c.Request = httptest.NewRequest("GET", "/api/user/orders", nil)
+			if tt.userID != "" {
+				c.Set("userID", tt.userID)
+			}
+
+			mockService := &MockOrderService{
+				GetOrdersFunc: tt.mockFunc,
+			}
+
+			h := &OrderHandler{
+				orderService: mockService,
+			}
+
+			h.GetOrdersHandler(c)
+
+			assert.Equal(t, tt.expectedStatus, w.Code)
+
+			if tt.expectedStatus == http.StatusOK {
+				var got []models.Order
+				err := json.Unmarshal(w.Body.Bytes(), &got)
+				assert.NoError(t, err)
+				assert.Equal(t, tt.expectedBody, got)
+			}
+		})
+	}
+}
+
+func TestOrderHandler_UploadOrderHandler(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	tests := []struct {
+		name           string
+		userID         string
 		body           string
-		userID         *int
-		mockCheck      func() (string, bool, error)
-		mockCreateErr  error
+		mockFunc       func(ctx context.Context, userID, orderNumber string) error
 		expectedStatus int
 	}{
 		{
-			name:           "unauthorized",
-			body:           "79927398713",
-			userID:         nil,
+			name:   "401 unauthorized if no userID",
+			userID: "",
+			body:   "12345678903",
+			mockFunc: func(ctx context.Context, userID, orderNumber string) error {
+				return nil
+			},
 			expectedStatus: http.StatusUnauthorized,
 		},
 		{
-			name:           "empty body",
-			body:           "",
-			userID:         intPtr(1),
+			name:   "400 bad request if body empty",
+			userID: "user1",
+			body:   "",
+			mockFunc: func(ctx context.Context, userID, orderNumber string) error {
+				return nil
+			},
 			expectedStatus: http.StatusBadRequest,
 		},
 		{
-			name:           "non digit order",
-			body:           "12ab34",
-			userID:         intPtr(1),
+			name:   "422 unprocessable entity if number invalid (non-numeric)",
+			userID: "user1",
+			body:   "abc123",
+			mockFunc: func(ctx context.Context, userID, orderNumber string) error {
+				return nil
+			},
 			expectedStatus: http.StatusUnprocessableEntity,
 		},
 		{
-			name:           "invalid luhn",
-			body:           "1234567890",
-			userID:         intPtr(1),
+			name:   "422 unprocessable entity if number invalid (fails Luhn)",
+			userID: "user1",
+			body:   "12345678901",
+			mockFunc: func(ctx context.Context, userID, orderNumber string) error {
+				return nil
+			},
 			expectedStatus: http.StatusUnprocessableEntity,
 		},
 		{
-			name:   "order exists same user",
+			name:   "202 accepted new number",
+			userID: "user1",
 			body:   "79927398713",
-			userID: intPtr(1),
-			mockCheck: func() (string, bool, error) {
-				return "", true, nil
-			},
-			expectedStatus: http.StatusOK,
-		},
-		{
-			name:   "order exists other user",
-			body:   "79927398713",
-			userID: intPtr(1),
-			mockCheck: func() (string, bool, error) {
-				return "", true, nil
-			},
-			expectedStatus: http.StatusConflict,
-		},
-		{
-			name:   "new order",
-			body:   "79927398713",
-			userID: intPtr(1),
-			mockCheck: func() (string, bool, error) {
-				return "", false, nil
+			mockFunc: func(ctx context.Context, userID, orderNumber string) error {
+				return nil
 			},
 			expectedStatus: http.StatusAccepted,
 		},
 		{
-			name:   "db error",
+			name:   "200 already uploaded by self",
+			userID: "user1",
 			body:   "79927398713",
-			userID: intPtr(1),
-			mockCheck: func() (string, bool, error) {
-				return "", false, errStub{}
-			},
-			expectedStatus: http.StatusInternalServerError,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-
-			database.CheckOrderExists = func(_ context.Context, _ string) (string, bool, error) {
-				if tt.mockCheck != nil {
-					return tt.mockCheck()
-				}
-				return "", false, nil
-			}
-
-			database.CreateOrder = func(_ context.Context, _ models.Order) error {
-				return tt.mockCreateErr
-			}
-
-			w := httptest.NewRecorder()
-			c, _ := gin.CreateTestContext(w)
-
-			req := httptest.NewRequest(
-				http.MethodPost,
-				"/api/user/orders",
-				strings.NewReader(tt.body),
-			)
-			c.Request = req
-
-			if tt.userID != nil {
-				c.Set("userID", *tt.userID)
-			}
-
-			UploadOrderHandler(c)
-
-			require.Equal(t, tt.expectedStatus, w.Code)
-		})
-	}
-}
-
-func intPtr(i int) *int {
-	return &i
-}
-
-type errStub struct{}
-
-func (errStub) Error() string {
-	return "db error"
-}
-
-func TestGetOrdersHandler(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-
-	origGetOrders := database.GetOrdersByUser
-	t.Cleanup(func() {
-		database.GetOrdersByUser = origGetOrders
-	})
-
-	userID := "9da96116-0301-478b-9583-f0335368d51a"
-	sampleOrders := []models.Order{
-		{
-			Number:     "1234567890",
-			Status:     "PROCESSED",
-			Accrual:    100,
-			UploadedAt: time.Now(),
-		},
-		{
-			Number:     "9876543210",
-			Status:     "PROCESSING",
-			UploadedAt: time.Now().Add(-time.Hour),
-		},
-	}
-
-	tests := []struct {
-		name           string
-		userID         *string
-		mockOrders     func() ([]models.Order, error)
-		expectedStatus int
-	}{
-		{
-			name:           "unauthorized",
-			userID:         nil,
-			expectedStatus: http.StatusUnauthorized,
-		},
-		{
-			name:   "no orders",
-			userID: &userID,
-			mockOrders: func() ([]models.Order, error) {
-				return []models.Order{}, nil
-			},
-			expectedStatus: http.StatusNoContent,
-		},
-		{
-			name:   "orders exist",
-			userID: &userID,
-			mockOrders: func() ([]models.Order, error) {
-				return sampleOrders, nil
+			mockFunc: func(ctx context.Context, userID, orderNumber string) error {
+				return service.ErrAlreadyUploadedSelf
 			},
 			expectedStatus: http.StatusOK,
 		},
 		{
-			name:   "db error",
-			userID: &userID,
-			mockOrders: func() ([]models.Order, error) {
-				return nil, errStub{}
+			name:   "409 already uploaded by other",
+			userID: "user1",
+			body:   "79927398713",
+			mockFunc: func(ctx context.Context, userID, orderNumber string) error {
+				return service.ErrAlreadyUploadedOther
+			},
+			expectedStatus: http.StatusConflict,
+		},
+		{
+			name:   "500 internal server error",
+			userID: "user1",
+			body:   "79927398713",
+			mockFunc: func(ctx context.Context, userID, orderNumber string) error {
+				return errors.New("unknown error")
 			},
 			expectedStatus: http.StatusInternalServerError,
 		},
@@ -202,26 +182,41 @@ func TestGetOrdersHandler(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// мокируем БД
-			database.GetOrdersByUser = func(_ context.Context, _ string) ([]models.Order, error) {
-				if tt.mockOrders != nil {
-					return tt.mockOrders()
-				}
-				return nil, nil
-			}
-
 			w := httptest.NewRecorder()
 			c, _ := gin.CreateTestContext(w)
-			req := httptest.NewRequest(http.MethodGet, "/api/user/orders", nil)
-			c.Request = req
 
-			if tt.userID != nil {
-				c.Set("userID", *tt.userID)
+			c.Request = httptest.NewRequest("POST", "/api/user/orders", bytes.NewBufferString(tt.body))
+			if tt.userID != "" {
+				c.Set("userID", tt.userID)
 			}
 
-			GetOrdersHandler(c)
+			mockService := &MockOrderService{
+				UploadFunc: tt.mockFunc,
+			}
 
-			require.Equal(t, tt.expectedStatus, w.Code)
+			h := &OrderHandler{
+				orderService: mockService,
+			}
+
+			h.UploadOrderHandler(c)
+
+			assert.Equal(t, tt.expectedStatus, w.Code)
 		})
 	}
+}
+
+type MockOrderService struct {
+	UploadFunc    func(ctx context.Context, userID, orderNumber string) error
+	GetOrdersFunc func(ctx context.Context, userID string) ([]models.Order, error)
+}
+
+func (m *MockOrderService) UploadOrder(ctx context.Context, userID, orderNumber string) error {
+	return m.UploadFunc(ctx, userID, orderNumber)
+}
+
+func (m *MockOrderService) GetOrders(ctx context.Context, userID string) ([]models.Order, error) {
+	if m.GetOrdersFunc != nil {
+		return m.GetOrdersFunc(ctx, userID)
+	}
+	return nil, nil
 }

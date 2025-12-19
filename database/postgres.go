@@ -6,14 +6,17 @@ import (
 	"os"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/joho/godotenv"
 )
 
-var DB *pgxpool.Pool
+func InitDB() *pgxpool.Pool {
+	if err := godotenv.Load(); err != nil {
+		log.Println("No .env file found, using system environment variables")
+	}
 
-func Init() *pgxpool.Pool {
 	dsn := os.Getenv("DATABASE_URI")
 	if dsn == "" {
-		dsn = "postgres://postgres:postgres@localhost:5432/loyalty?sslmode=disable"
+		log.Fatal("DATABASE_URI is not set in environment variables")
 	}
 
 	pool, err := pgxpool.New(context.Background(), dsn)
@@ -21,6 +24,5 @@ func Init() *pgxpool.Pool {
 		log.Fatalf("failed to connect to db: %v", err)
 	}
 
-	DB = pool
 	return pool
 }
