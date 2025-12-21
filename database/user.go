@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/Guldana11/gophermart/models"
+	"github.com/Guldana11/gophermart/repository"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -14,6 +15,8 @@ import (
 
 var ErrInsufficientFunds = errors.New("insufficient funds")
 var ErrInvalidOrder = errors.New("invalid order")
+
+var _ repository.UserRepository = (*UserRepo)(nil)
 
 type UserRepo struct {
 	db *pgxpool.Pool

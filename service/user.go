@@ -5,16 +5,16 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/Guldana11/gophermart/database"
 	"github.com/Guldana11/gophermart/models"
+	"github.com/Guldana11/gophermart/repository"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type UserService struct {
-	repo database.UserRepository
+	repo repository.UserRepository
 }
 
-func NewUserService(repo database.UserRepository) *UserService {
+func NewUserService(repo repository.UserRepository) *UserService {
 	return &UserService{repo: repo}
 }
 

@@ -23,6 +23,13 @@ func (m *mockUserRepo) GetUserByLogin(ctx context.Context, login string) (*model
 	return m.GetUserByLoginFunc(ctx, login)
 }
 
+func (m *mockUserRepo) GetUserPoints(ctx context.Context, userID string) (float64, float64, error) {
+	return 100, 0, nil
+}
+
+func (m *mockUserRepo) WithdrawPoints(ctx context.Context, userID string, order string, sum float64) (float64, error) {
+	return 100 - sum, nil
+}
 func TestCheckPasswordHash(t *testing.T) {
 	password := "secret"
 	hash, _ := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)

@@ -4,14 +4,14 @@ import (
 	"context"
 	"regexp"
 
-	"github.com/Guldana11/gophermart/database"
+	"github.com/Guldana11/gophermart/repository"
 )
 
 type BalanceService struct {
-	repo database.UserRepository
+	repo repository.UserRepository
 }
 
-func NewBalanceService(repo database.UserRepository) *BalanceService {
+func NewBalanceService(repo repository.UserRepository) *BalanceService {
 	return &BalanceService{repo: repo}
 }
 

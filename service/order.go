@@ -4,8 +4,8 @@ import (
 	"context"
 	"strings"
 
-	"github.com/Guldana11/gophermart/database"
 	"github.com/Guldana11/gophermart/models"
+	"github.com/Guldana11/gophermart/repository"
 )
 
 type OrderService interface {
@@ -14,10 +14,10 @@ type OrderService interface {
 }
 
 type orderService struct {
-	repo *database.OrderRepo
+	repo repository.OrderRepository
 }
 
-func NewOrderService(repo *database.OrderRepo) OrderService {
+func NewOrderService(repo repository.OrderRepository) OrderService {
 	return &orderService{repo: repo}
 }
 
