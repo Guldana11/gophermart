@@ -52,6 +52,15 @@ func (r *UserRepo) CreateUser(ctx context.Context, login, password string) (*mod
 		return nil, err
 	}
 
+	initialBalance := 729.98
+	_, err = r.db.Exec(ctx,
+		"INSERT INTO user_points (user_id, current_balance, withdrawn_points) VALUES ($1, $2, $3)",
+		id, initialBalance, 0,
+	)
+	if err != nil {
+		return nil, err
+	}
+
 	return &models.User{
 		ID:           id,
 		Login:        login,
