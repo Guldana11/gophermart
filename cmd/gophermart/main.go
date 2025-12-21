@@ -47,8 +47,8 @@ func main() {
 	auth := r.Group("/api")
 	auth.Use(middleware.AuthMiddlewareJWT())
 	{
-		auth.POST("/orders", orderHandler.UploadOrderHandler)
-		auth.GET("/orders", orderHandler.GetOrdersHandler)
+		auth.POST("/user/orders", orderHandler.UploadOrderHandler)
+		auth.GET("/user/orders", orderHandler.GetOrdersHandler)
 
 		auth.GET("/user/balance", userHandler.GetBalance)
 		auth.POST("/user/balance/withdraw", userHandler.Withdraw)
