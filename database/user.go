@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"time"
 
@@ -74,21 +75,25 @@ func (r *UserRepo) GetUserPoints(ctx context.Context, userID string) (float64, f
 	var current, withdrawn float64
 	err := r.db.QueryRow(ctx,
 		`SELECT current_balance, withdrawn_points 
-		 FROM user_points 
-		 WHERE user_id = $1`, userID).
+         FROM user_points 
+         WHERE user_id = $1`, userID).
 		Scan(&current, &withdrawn)
+
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			_, err := r.db.Exec(ctx,
+				`INSERT INTO user_points (user_id, current_balance, withdrawn_points) VALUES ($1, 0, 0)`, userID)
+			if err != nil {
+				return 0, 0, err
+			}
+			return 0, 0, nil
+		}
 		return 0, 0, err
 	}
 	return current, withdrawn, nil
 }
 
-func (r *UserRepo) WithdrawPoints(
-	ctx context.Context,
-	userID string,
-	order string,
-	sum float64,
-) (float64, error) {
+func (r *UserRepo) WithdrawPoints(ctx context.Context, userID string, order string, sum float64) (float64, error) {
 
 	var current float64
 
