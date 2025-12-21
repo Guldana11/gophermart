@@ -2,17 +2,10 @@ package service
 
 import (
 	"context"
-	"errors"
 	"strings"
 
 	"github.com/Guldana11/gophermart/database"
 	"github.com/Guldana11/gophermart/models"
-)
-
-var (
-	ErrInvalidOrder         = errors.New("invalid order number")
-	ErrAlreadyUploadedSelf  = errors.New("order already uploaded by user")
-	ErrAlreadyUploadedOther = errors.New("order uploaded by another user")
 )
 
 type OrderService interface {

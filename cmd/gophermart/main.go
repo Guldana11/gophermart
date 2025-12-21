@@ -36,6 +36,8 @@ func main() {
 	orderSvc := service.NewOrderService(orderRepo)
 
 	orderHandler := handlers.NewOrderHandler(orderSvc)
+	balanceSvc := service.NewBalanceService(userRepo)
+	userHandler := handlers.NewUserHandler(balanceSvc)
 
 	r := gin.Default()
 
@@ -47,6 +49,10 @@ func main() {
 	{
 		auth.POST("/orders", orderHandler.UploadOrderHandler)
 		auth.GET("/orders", orderHandler.GetOrdersHandler)
+
+		auth.GET("/user/balance", userHandler.GetBalance)
+		auth.POST("/user/balance/withdraw", userHandler.Withdraw)
+
 	}
 
 	log.Println("server started at :8080")
