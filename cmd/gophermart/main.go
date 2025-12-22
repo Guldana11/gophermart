@@ -52,6 +52,7 @@ func main() {
 
 		auth.GET("/user/balance", userHandler.GetBalance)
 		auth.POST("/user/balance/withdraw", userHandler.Withdraw)
+		auth.GET("/user/withdrawals", userHandler.GetWithdrawals)
 
 	}
 

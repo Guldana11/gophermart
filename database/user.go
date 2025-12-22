@@ -169,3 +169,28 @@ func (r *UserRepo) WithdrawPoints(ctx context.Context, userID string, order stri
 
 	return current - sum, nil
 }
+
+func (r *UserRepo) GetUserWithdrawals(ctx context.Context, userID string) ([]models.Withdrawal, error) {
+	rows, err := r.db.Query(ctx,
+		`SELECT order_id, sum, created_at
+		 FROM withdrawals
+		 WHERE user_id = $1
+		 ORDER BY created_at DESC`,
+		userID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var res []models.Withdrawal
+	for rows.Next() {
+		var w models.Withdrawal
+		if err := rows.Scan(&w.OrderID, &w.Sum, &w.CreatedAt); err != nil {
+			return nil, err
+		}
+		res = append(res, w)
+	}
+
+	return res, nil
+}

@@ -73,3 +73,24 @@ func (h *UserHandler) Withdraw(c *gin.Context) {
 		Current: newBalance,
 	})
 }
+
+func (h *UserHandler) GetWithdrawals(c *gin.Context) {
+	userID := c.GetString("userID")
+	if strings.TrimSpace(userID) == "" {
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
+
+	withdrawals, err := h.BalanceService.GetWithdrawals(c.Request.Context(), userID)
+	if err != nil {
+		c.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+
+	if len(withdrawals) == 0 {
+		c.AbortWithStatus(http.StatusNoContent)
+		return
+	}
+
+	c.JSON(http.StatusOK, withdrawals)
+}
