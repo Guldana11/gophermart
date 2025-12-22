@@ -40,16 +40,20 @@ func (m *mockUserRepo) GetUserWithdrawals(ctx context.Context, userID string) ([
 
 	return []models.Withdrawal{
 		{
-			OrderID:   "12345",
-			Sum:       500,
-			CreatedAt: time.Now(),
+			Order:       "12345",
+			Sum:         500,
+			ProcessedAt: time.Now(),
 		},
 		{
-			OrderID:   "67890",
-			Sum:       300,
-			CreatedAt: time.Now(),
+			Order:       "67890",
+			Sum:         300,
+			ProcessedAt: time.Now(),
 		},
 	}, nil
+}
+
+func (m *mockUserRepo) SaveWithdrawal(ctx context.Context, userID string, order string, sum float64) error {
+	return nil
 }
 
 func TestCheckPasswordHash(t *testing.T) {
