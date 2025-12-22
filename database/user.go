@@ -103,7 +103,6 @@ func (r *UserRepo) GetUserPoints(ctx context.Context, userID string) (float64, f
 }
 
 func (r *UserRepo) WithdrawPoints(ctx context.Context, userID string, order string, sum float64) (float64, error) {
-
 	var current float64
 
 	tx, err := r.db.BeginTx(ctx, pgx.TxOptions{})
@@ -115,11 +114,10 @@ func (r *UserRepo) WithdrawPoints(ctx context.Context, userID string, order stri
 	var exists bool
 	err = tx.QueryRow(ctx,
 		`SELECT EXISTS (
-			SELECT 1 FROM withdrawals WHERE order_id = $1
+			SELECT 1 FROM withdrawals WHERE order_number = $1
 		)`,
 		order,
 	).Scan(&exists)
-
 	if err != nil {
 		return 0, err
 	}
@@ -134,7 +132,6 @@ func (r *UserRepo) WithdrawPoints(ctx context.Context, userID string, order stri
 		 FOR UPDATE`,
 		userID,
 	).Scan(&current)
-
 	if err != nil {
 		return 0, err
 	}
@@ -155,9 +152,9 @@ func (r *UserRepo) WithdrawPoints(ctx context.Context, userID string, order stri
 	}
 
 	_, err = tx.Exec(ctx,
-		`INSERT INTO withdrawals (order_id, user_id, sum)
+		`INSERT INTO withdrawals (user_id, order_number, sum)
 		 VALUES ($1, $2, $3)`,
-		order, userID, sum,
+		userID, order, sum,
 	)
 	if err != nil {
 		return 0, err
