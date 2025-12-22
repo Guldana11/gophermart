@@ -18,7 +18,8 @@ import (
 type MockBalanceService struct {
 	GetUserBalanceFunc func(ctx context.Context, userID string) (float64, float64, error)
 	WithdrawFunc       func(ctx context.Context, userID, order string, sum float64) (float64, error)
-	GetWithdrawalsFunc func(ctx context.Context, userID string) ([]models.WithdrawalResponse, error)
+	GetWithdrawalsFunc func(ctx context.Context, userID string) ([]models.Withdrawal, error)
+	SaveWithdrawalFunc func(ctx context.Context, userID string, order string, sum float64) error
 }
 
 func (m *MockBalanceService) GetUserBalance(ctx context.Context, userID string) (float64, float64, error) {
@@ -29,8 +30,12 @@ func (m *MockBalanceService) Withdraw(ctx context.Context, userID, order string,
 	return m.WithdrawFunc(ctx, userID, order, sum)
 }
 
-func (m *MockBalanceService) GetWithdrawals(ctx context.Context, userID string) ([]models.WithdrawalResponse, error) {
+func (m *MockBalanceService) GetWithdrawals(ctx context.Context, userID string) ([]models.Withdrawal, error) {
 	return m.GetWithdrawalsFunc(ctx, userID)
+}
+
+func (m *MockBalanceService) SaveWithdrawal(ctx context.Context, userID string, order string, sum float64) error {
+	return m.SaveWithdrawalFunc(ctx, userID, order, sum)
 }
 
 func TestGetBalanceHandler(t *testing.T) {
@@ -197,14 +202,14 @@ func TestGetWithdrawals(t *testing.T) {
 	tests := []struct {
 		name         string
 		userID       string
-		mockFunc     func(ctx context.Context, userID string) ([]models.WithdrawalResponse, error)
+		mockFunc     func(ctx context.Context, userID string) ([]models.Withdrawal, error)
 		expectedCode int
 		expectedBody string
 	}{
 		{
 			name:   "unauthorized",
 			userID: "",
-			mockFunc: func(ctx context.Context, userID string) ([]models.WithdrawalResponse, error) {
+			mockFunc: func(ctx context.Context, userID string) ([]models.Withdrawal, error) {
 				return nil, nil
 			},
 			expectedCode: http.StatusUnauthorized,
@@ -213,8 +218,8 @@ func TestGetWithdrawals(t *testing.T) {
 		{
 			name:   "no withdrawals",
 			userID: "123",
-			mockFunc: func(ctx context.Context, userID string) ([]models.WithdrawalResponse, error) {
-				return []models.WithdrawalResponse{}, nil
+			mockFunc: func(ctx context.Context, userID string) ([]models.Withdrawal, error) {
+				return []models.Withdrawal{}, nil
 			},
 			expectedCode: http.StatusNoContent,
 			expectedBody: "",
@@ -222,7 +227,7 @@ func TestGetWithdrawals(t *testing.T) {
 		{
 			name:   "internal error",
 			userID: "123",
-			mockFunc: func(ctx context.Context, userID string) ([]models.WithdrawalResponse, error) {
+			mockFunc: func(ctx context.Context, userID string) ([]models.Withdrawal, error) {
 				return nil, errors.New("db error")
 			},
 			expectedCode: http.StatusInternalServerError,
@@ -231,12 +236,12 @@ func TestGetWithdrawals(t *testing.T) {
 		{
 			name:   "success with withdrawals",
 			userID: "123",
-			mockFunc: func(ctx context.Context, userID string) ([]models.WithdrawalResponse, error) {
-				return []models.WithdrawalResponse{
+			mockFunc: func(ctx context.Context, userID string) ([]models.Withdrawal, error) {
+				return []models.Withdrawal{
 					{
 						Order:       "2377225624",
 						Sum:         500,
-						ProcessedAt: time.Date(2020, 12, 9, 16, 9, 57, 0, time.FixedZone("MSK", 3*3600)).Format(time.RFC3339),
+						ProcessedAt: time.Date(2020, 12, 9, 16, 9, 57, 0, time.FixedZone("MSK", 3*3600)),
 					},
 				}, nil
 			},

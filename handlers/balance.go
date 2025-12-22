@@ -2,7 +2,6 @@
 package handlers
 
 import (
-	"log"
 	"net/http"
 	"strings"
 
@@ -55,13 +54,17 @@ func (h *UserHandler) Withdraw(c *gin.Context) {
 	if err != nil {
 		switch err {
 		case service.ErrInvalidOrder:
-			c.AbortWithStatusJSON(http.StatusUnprocessableEntity, gin.H{"error": "invalid order"})
+			c.AbortWithStatus(http.StatusUnprocessableEntity)
 		case service.ErrInsufficientFunds:
-			c.AbortWithStatusJSON(http.StatusPaymentRequired, gin.H{"error": "insufficient funds"})
+			c.AbortWithStatus(http.StatusPaymentRequired)
 		default:
-			log.Printf("Withdraw error: %v", err)
 			c.AbortWithStatus(http.StatusInternalServerError)
 		}
+		return
+	}
+
+	if err := h.BalanceService.SaveWithdrawal(c.Request.Context(), userID, req.Order, req.Sum); err != nil {
+		c.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
 
@@ -83,9 +86,8 @@ func (h *UserHandler) GetWithdrawals(c *gin.Context) {
 		return
 	}
 
-	if len(withdrawals) == 0 {
-		c.Status(http.StatusNoContent)
-		return
+	if withdrawals == nil {
+		withdrawals = []models.Withdrawal{}
 	}
 
 	c.JSON(http.StatusOK, withdrawals)

@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"regexp"
-	"time"
 
 	"github.com/Guldana11/gophermart/models"
 	"github.com/Guldana11/gophermart/repository"
@@ -24,7 +23,6 @@ func (s *BalanceService) GetUserBalance(ctx context.Context, userID string) (cur
 var orderRegexp = regexp.MustCompile(`^\d+$`)
 
 func (s *BalanceService) Withdraw(ctx context.Context, userID string, order string, sum float64) (float64, error) {
-
 	if order == "" || !orderRegexp.MatchString(order) {
 		return 0, ErrInvalidOrder
 	}
@@ -41,28 +39,37 @@ func (s *BalanceService) Withdraw(ctx context.Context, userID string, order stri
 		return 0, err
 	}
 
+	if err := s.repo.SaveWithdrawal(ctx, userID, order, sum); err != nil {
+		return 0, err
+	}
+
 	return newBalance, nil
 }
 
-func (s *BalanceService) GetWithdrawals(ctx context.Context, userID string) ([]models.WithdrawalResponse, error) {
+func (s *BalanceService) GetWithdrawals(ctx context.Context, userID string) ([]models.Withdrawal, error) {
 	rows, err := s.repo.GetUserWithdrawals(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
 
-	res := make([]models.WithdrawalResponse, len(rows))
+	res := make([]models.Withdrawal, len(rows))
 	for i, w := range rows {
-		res[i] = models.WithdrawalResponse{
-			Order:       w.OrderID,
+		res[i] = models.Withdrawal{
+			Order:       w.Order,
 			Sum:         w.Sum,
-			ProcessedAt: w.CreatedAt.Format(time.RFC3339),
+			ProcessedAt: w.ProcessedAt,
 		}
 	}
 	return res, nil
 }
 
+func (s *BalanceService) SaveWithdrawal(ctx context.Context, userID string, order string, sum float64) error {
+	return s.repo.SaveWithdrawal(ctx, userID, order, sum)
+}
+
 type BalanceServiceType interface {
 	GetUserBalance(ctx context.Context, userID string) (float64, float64, error)
 	Withdraw(ctx context.Context, userID, order string, sum float64) (float64, error)
-	GetWithdrawals(ctx context.Context, userID string) ([]models.WithdrawalResponse, error)
+	GetWithdrawals(ctx context.Context, userID string) ([]models.Withdrawal, error)
+	SaveWithdrawal(ctx context.Context, userID, order string, sum float64) error
 }

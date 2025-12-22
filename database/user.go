@@ -170,6 +170,14 @@ func (r *UserRepo) WithdrawPoints(ctx context.Context, userID string, order stri
 	return current - sum, nil
 }
 
+func (r *UserRepo) SaveWithdrawal(ctx context.Context, userID, order string, sum float64) error {
+	_, err := r.db.Exec(ctx,
+		`INSERT INTO withdrawals (user_id, order_number, sum) VALUES ($1, $2, $3)`,
+		userID, order, sum,
+	)
+	return err
+}
+
 func (r *UserRepo) GetUserWithdrawals(ctx context.Context, userID string) ([]models.Withdrawal, error) {
 	rows, err := r.db.Query(ctx,
 		`SELECT order_id, sum, created_at
@@ -186,7 +194,7 @@ func (r *UserRepo) GetUserWithdrawals(ctx context.Context, userID string) ([]mod
 	var res []models.Withdrawal
 	for rows.Next() {
 		var w models.Withdrawal
-		if err := rows.Scan(&w.OrderID, &w.Sum, &w.CreatedAt); err != nil {
+		if err := rows.Scan(&w.Order, &w.Sum, &w.ProcessedAt); err != nil {
 			return nil, err
 		}
 		res = append(res, w)
