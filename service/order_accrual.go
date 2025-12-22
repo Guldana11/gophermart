@@ -31,6 +31,6 @@ func (s *LoyaltyService) GetOrderAccrual(ctx context.Context, orderNumber string
 	return &models.OrderAccrualResponse{
 		Order:   orderNumber,
 		Status:  "REGISTERED",
-		Accrual: nil,
+		Accrual: 0,
 	}, nil
 }

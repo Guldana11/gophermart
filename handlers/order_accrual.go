@@ -15,7 +15,7 @@ func (h *OrderHandler) GetOrderAccrual(c *gin.Context) {
 		return
 	}
 
-	resp, err := h.LoyaltyService.GetOrderAccrual(c.Request.Context(), orderNumber)
+	resp, err := h.loyaltyService.GetOrderAccrual(c.Request.Context(), orderNumber)
 	if err != nil {
 		switch err {
 		case service.ErrOrderNotFound:

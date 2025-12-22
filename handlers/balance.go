@@ -2,6 +2,7 @@
 package handlers
 
 import (
+	"log"
 	"net/http"
 	"strings"
 
@@ -50,20 +51,15 @@ func (h *UserHandler) Withdraw(c *gin.Context) {
 		return
 	}
 
-	newBalance, err := h.BalanceService.Withdraw(
-		c.Request.Context(),
-		userID,
-		req.Order,
-		req.Sum,
-	)
-
+	newBalance, err := h.BalanceService.Withdraw(c.Request.Context(), userID, req.Order, req.Sum)
 	if err != nil {
 		switch err {
 		case service.ErrInvalidOrder:
-			c.AbortWithStatus(http.StatusUnprocessableEntity)
+			c.AbortWithStatusJSON(http.StatusUnprocessableEntity, gin.H{"error": "invalid order"})
 		case service.ErrInsufficientFunds:
-			c.AbortWithStatus(http.StatusPaymentRequired)
+			c.AbortWithStatusJSON(http.StatusPaymentRequired, gin.H{"error": "insufficient funds"})
 		default:
+			log.Printf("Withdraw error: %v", err)
 			c.AbortWithStatus(http.StatusInternalServerError)
 		}
 		return
@@ -88,7 +84,7 @@ func (h *UserHandler) GetWithdrawals(c *gin.Context) {
 	}
 
 	if len(withdrawals) == 0 {
-		c.AbortWithStatus(http.StatusNoContent)
+		c.Status(http.StatusNoContent)
 		return
 	}
 
