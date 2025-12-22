@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/Guldana11/gophermart/models"
 	"github.com/stretchr/testify/assert"
@@ -11,8 +12,9 @@ import (
 )
 
 type mockUserRepo struct {
-	CreateUserFunc     func(ctx context.Context, login, password string) (*models.User, error)
-	GetUserByLoginFunc func(ctx context.Context, login string) (*models.User, error)
+	CreateUserFunc         func(ctx context.Context, login, password string) (*models.User, error)
+	GetUserByLoginFunc     func(ctx context.Context, login string) (*models.User, error)
+	GetUserWithdrawalsFunc func(ctx context.Context, userID string) ([]models.Withdrawal, error)
 }
 
 func (m *mockUserRepo) CreateUser(ctx context.Context, login, password string) (*models.User, error) {
@@ -30,6 +32,26 @@ func (m *mockUserRepo) GetUserPoints(ctx context.Context, userID string) (float6
 func (m *mockUserRepo) WithdrawPoints(ctx context.Context, userID string, order string, sum float64) (float64, error) {
 	return 100 - sum, nil
 }
+
+func (m *mockUserRepo) GetUserWithdrawals(ctx context.Context, userID string) ([]models.Withdrawal, error) {
+	if m.GetUserWithdrawalsFunc != nil {
+		return m.GetUserWithdrawalsFunc(ctx, userID)
+	}
+
+	return []models.Withdrawal{
+		{
+			OrderID:   "12345",
+			Sum:       500,
+			CreatedAt: time.Now(),
+		},
+		{
+			OrderID:   "67890",
+			Sum:       300,
+			CreatedAt: time.Now(),
+		},
+	}, nil
+}
+
 func TestCheckPasswordHash(t *testing.T) {
 	password := "secret"
 	hash, _ := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
