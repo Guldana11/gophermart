@@ -11,11 +11,15 @@ import (
 )
 
 type OrderHandler struct {
-	orderService service.OrderService
+	orderService   service.OrderService
+	LoyaltyService service.LoyaltyServiceType
 }
 
-func NewOrderHandler(s service.OrderService) *OrderHandler {
-	return &OrderHandler{s}
+func NewOrderHandler(orderSvc service.OrderService, loyaltySvc service.LoyaltyServiceType) *OrderHandler {
+	return &OrderHandler{
+		orderService:   orderSvc,
+		LoyaltyService: loyaltySvc,
+	}
 }
 
 func (h *OrderHandler) UploadOrderHandler(c *gin.Context) {

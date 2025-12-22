@@ -34,8 +34,9 @@ func main() {
 
 	userSvc := service.NewUserService(userRepo)
 	orderSvc := service.NewOrderService(orderRepo)
+	loyaltySvc := service.NewLoyaltyService()
 
-	orderHandler := handlers.NewOrderHandler(orderSvc)
+	orderHandler := handlers.NewOrderHandler(orderSvc, loyaltySvc)
 	balanceSvc := service.NewBalanceService(userRepo)
 	userHandler := handlers.NewUserHandler(balanceSvc)
 
