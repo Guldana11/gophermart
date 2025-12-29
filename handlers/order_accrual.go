@@ -9,23 +9,20 @@ import (
 )
 
 func (h *OrderHandler) GetOrderAccrual(c *gin.Context) {
-	orderNumber := c.Param("number")
-	if strings.TrimSpace(orderNumber) == "" {
-		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "invalid order number"})
+	orderNumber := strings.TrimSpace(c.Param("number"))
+	if orderNumber == "" {
+		c.Status(http.StatusUnprocessableEntity)
 		return
 	}
 
 	resp, err := h.loyaltyService.GetOrderAccrual(c.Request.Context(), orderNumber)
 	if err != nil {
-		switch err {
-		case service.ErrOrderNotFound:
-			c.Status(http.StatusNoContent)
-		case service.ErrTooManyReq:
+		if err == service.ErrTooManyReq {
 			c.Header("Retry-After", "60")
-			c.String(http.StatusTooManyRequests, "No more than N requests per minute allowed")
-		default:
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+			c.Status(http.StatusTooManyRequests)
+			return
 		}
+		c.Status(http.StatusInternalServerError)
 		return
 	}
 

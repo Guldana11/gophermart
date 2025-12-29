@@ -3,19 +3,20 @@ package handlers
 import (
 	"errors"
 	"net/http"
+	"sort"
 	"strings"
+	"time"
 
-	"github.com/Guldana11/gophermart/models"
 	"github.com/Guldana11/gophermart/service"
 	"github.com/gin-gonic/gin"
 )
 
 type OrderHandler struct {
 	orderService   service.OrderService
-	loyaltyService service.LoyaltyServiceType
+	loyaltyService service.LoyaltyService
 }
 
-func NewOrderHandler(orderSvc service.OrderService, loyaltySvc service.LoyaltyServiceType) *OrderHandler {
+func NewOrderHandler(orderSvc service.OrderService, loyaltySvc service.LoyaltyService) *OrderHandler {
 	return &OrderHandler{
 		orderService:   orderSvc,
 		loyaltyService: loyaltySvc,
@@ -80,30 +81,32 @@ func (h *OrderHandler) GetOrdersHandler(c *gin.Context) {
 		return
 	}
 
-	if orders == nil {
-		orders = []models.Order{}
+	if len(orders) == 0 {
+		c.Status(http.StatusNoContent)
+		return
 	}
+
+	sort.Slice(orders, func(i, j int) bool {
+		return orders[i].UploadedAt.After(orders[j].UploadedAt)
+	})
 
 	var result []map[string]interface{}
 	for _, order := range orders {
-		var status string
-		var accrual float64
+		status := "NEW"
+		accrual := 0.0
 
 		if h.loyaltyService != nil {
-			acc, err := h.loyaltyService.GetOrderAccrual(c.Request.Context(), order.Number)
-			if err == nil && acc != nil {
-				status = acc.Status
-				accrual = acc.Accrual
-			} else {
-				status = "REGISTERED"
+			resp, err := h.loyaltyService.GetOrderAccrual(c.Request.Context(), order.Number)
+			if err == nil && resp != nil {
+				status = resp.Status
+				accrual = resp.Accrual
 			}
-		} else {
-			status = "REGISTERED"
 		}
 
 		orderMap := map[string]interface{}{
-			"number": order.Number,
-			"status": status,
+			"number":      order.Number,
+			"status":      status,
+			"uploaded_at": order.UploadedAt.Format(time.RFC3339),
 		}
 		if accrual > 0 {
 			orderMap["accrual"] = accrual
