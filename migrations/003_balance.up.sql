@@ -1,13 +1,13 @@
-CREATE EXTENSION IF NOT EXISTS "pgcrypto";
-
 CREATE TABLE IF NOT EXISTS user_points (
-                                           user_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    current_balance NUMERIC DEFAULT 0,
-    withdrawn_points NUMERIC DEFAULT 0
+                                           user_id UUID PRIMARY KEY,
+                                           current_balance NUMERIC(12,2) NOT NULL DEFAULT 0,
+    withdrawn_points NUMERIC(12,2) NOT NULL DEFAULT 0,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    CONSTRAINT fk_user_points_user
+    FOREIGN KEY (user_id)
+    REFERENCES users(id)
+                         ON DELETE CASCADE
     );
 
-INSERT INTO user_points (user_id, current_balance, withdrawn_points)
-VALUES ('11111111-1111-1111-1111-111111111111', 729.98, 0)
-    ON CONFLICT (user_id) DO UPDATE
-                                 SET current_balance = EXCLUDED.current_balance,
-                                 withdrawn_points = EXCLUDED.withdrawn_points;
+CREATE INDEX IF NOT EXISTS idx_user_points_user_id
+    ON user_points(user_id);
