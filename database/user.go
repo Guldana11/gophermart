@@ -11,7 +11,6 @@ import (
 	"github.com/Guldana11/gophermart/service"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -114,24 +113,7 @@ func (r *UserRepo) Withdraw(ctx context.Context, userID string, order string, su
 	var exists bool
 	err = tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM withdrawals WHERE order_number=$1)`, order).Scan(&exists)
 	if err != nil {
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == "42P01" {
-			_, err = tx.Exec(ctx, `
-				CREATE TABLE IF NOT EXISTS withdrawals (
-					user_id UUID NOT NULL,
-					order_number TEXT PRIMARY KEY,
-					sum NUMERIC(12,2) NOT NULL,
-					processed_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-					FOREIGN KEY (user_id) REFERENCES user_points(user_id) ON DELETE CASCADE
-				)
-			`)
-			if err != nil {
-				return err
-			}
-			exists = false
-		} else {
-			return err
-		}
+		return err
 	}
 	if exists {
 		return service.ErrInvalidOrder
@@ -145,29 +127,8 @@ func (r *UserRepo) Withdraw(ctx context.Context, userID string, order string, su
          FOR UPDATE`,
 		userID,
 	).Scan(&current)
-
 	if err != nil {
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == "42P01" {
-			_, err = tx.Exec(ctx, `
-				CREATE TABLE IF NOT EXISTS user_points (
-					user_id UUID PRIMARY KEY,
-					current_balance NUMERIC(12,2) NOT NULL DEFAULT 0,
-					withdrawn_points NUMERIC(12,2) NOT NULL DEFAULT 0,
-					updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
-				)
-			`)
-			if err != nil {
-				return err
-			}
-			_, err = tx.Exec(ctx,
-				`INSERT INTO user_points (user_id, current_balance, withdrawn_points)
-                 VALUES ($1, 0, 0)`, userID)
-			if err != nil {
-				return err
-			}
-			current = 0
-		} else if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, pgx.ErrNoRows) {
 			_, err = tx.Exec(ctx,
 				`INSERT INTO user_points (user_id, current_balance, withdrawn_points)
                  VALUES ($1, 0, 0)`, userID)
