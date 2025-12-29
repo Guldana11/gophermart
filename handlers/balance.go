@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"log"
 	"net/http"
 	"strings"
 
@@ -79,6 +80,7 @@ func (h *UserHandler) GetWithdrawals(c *gin.Context) {
 
 	withdrawals, err := h.BalanceService.GetWithdrawals(c.Request.Context(), userID)
 	if err != nil {
+		log.Printf("GetWithdrawals failed for user %s: %v", userID, err)
 		c.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
