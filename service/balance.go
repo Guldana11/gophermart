@@ -43,7 +43,7 @@ func (s *BalanceService) GetWithdrawals(ctx context.Context, userID string) ([]m
 	res := make([]models.Withdrawal, len(rows))
 	for i, w := range rows {
 		res[i] = models.Withdrawal{
-			Order:       w.Order,
+			OrderNumber: w.OrderNumber,
 			Sum:         w.Sum,
 			ProcessedAt: w.ProcessedAt,
 		}

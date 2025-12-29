@@ -173,10 +173,10 @@ func (r *UserRepo) Withdraw(ctx context.Context, userID string, order string, su
 
 func (r *UserRepo) GetUserWithdrawals(ctx context.Context, userID string) ([]models.Withdrawal, error) {
 	rows, err := r.db.Query(ctx,
-		`SELECT order_number, sum, created_at
+		`SELECT order_number, sum, processed_at
 		 FROM withdrawals
 		 WHERE user_id = $1
-		 ORDER BY created_at DESC`,
+		 ORDER BY processed_at DESC`,
 		userID,
 	)
 	if err != nil {
@@ -187,11 +187,11 @@ func (r *UserRepo) GetUserWithdrawals(ctx context.Context, userID string) ([]mod
 	var res []models.Withdrawal
 	for rows.Next() {
 		var w models.Withdrawal
-		var createdAt time.Time
-		if err := rows.Scan(&w.Order, &w.Sum, &createdAt); err != nil {
+		var processedAt time.Time
+		if err := rows.Scan(&w.OrderNumber, &w.Sum, &processedAt); err != nil {
 			return nil, err
 		}
-		w.ProcessedAt = createdAt
+		w.ProcessedAt = processedAt
 		res = append(res, w)
 	}
 

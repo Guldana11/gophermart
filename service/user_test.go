@@ -44,12 +44,12 @@ func (m *mockUserRepo) GetUserWithdrawals(ctx context.Context, userID string) ([
 
 	return []models.Withdrawal{
 		{
-			Order:       "12345",
+			OrderNumber: "12345",
 			Sum:         500,
 			ProcessedAt: time.Now(),
 		},
 		{
-			Order:       "67890",
+			OrderNumber: "67890",
 			Sum:         300,
 			ProcessedAt: time.Now(),
 		},

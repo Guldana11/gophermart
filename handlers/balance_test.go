@@ -238,7 +238,7 @@ func TestGetWithdrawals(t *testing.T) {
 			mockFunc: func(ctx context.Context, userID string) ([]models.Withdrawal, error) {
 				return []models.Withdrawal{
 					{
-						Order:       "2377225624",
+						OrderNumber: "2377225624",
 						Sum:         500,
 						ProcessedAt: time.Date(2020, 12, 9, 16, 9, 57, 0, time.FixedZone("MSK", 3*3600)),
 					},
