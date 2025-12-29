@@ -1,4 +1,3 @@
-// handlers/user.go
 package handlers
 
 import (
@@ -50,22 +49,25 @@ func (h *UserHandler) Withdraw(c *gin.Context) {
 		return
 	}
 
-	newBalance, err := h.BalanceService.Withdraw(c.Request.Context(), userID, req.Order, req.Sum)
+	err := h.BalanceService.Withdraw(
+		c.Request.Context(),
+		userID,
+		req.Order,
+		req.Sum,
+	)
 	if err != nil {
 		switch err {
 		case service.ErrInvalidOrder:
 			c.AbortWithStatus(http.StatusUnprocessableEntity)
 		case service.ErrInsufficientFunds:
-			c.AbortWithStatus(http.StatusPaymentRequired)
+			c.AbortWithStatus(http.StatusPaymentRequired) // 402
 		default:
 			c.AbortWithStatus(http.StatusInternalServerError)
 		}
 		return
 	}
 
-	c.JSON(http.StatusOK, models.WithdrawResponse{
-		Current: newBalance,
-	})
+	c.Status(http.StatusOK)
 }
 
 func (h *UserHandler) GetWithdrawals(c *gin.Context) {

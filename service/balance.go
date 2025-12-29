@@ -22,20 +22,16 @@ func (s *BalanceService) GetUserBalance(ctx context.Context, userID string) (cur
 
 var orderRegexp = regexp.MustCompile(`^\d{1,20}$`)
 
-func (s *BalanceService) Withdraw(ctx context.Context, userID string, order string, sum float64) (float64, error) {
+func (s *BalanceService) Withdraw(ctx context.Context, userID string, order string, sum float64) error {
+
 	if order == "" || !orderRegexp.MatchString(order) {
-		return 0, ErrInvalidOrder
+		return ErrInvalidOrder
 	}
 	if sum <= 0 {
-		return 0, ErrInvalidOrder
+		return ErrInvalidOrder
 	}
 
-	newBalance, err := s.repo.WithdrawPoints(ctx, userID, order, sum)
-	if err != nil {
-		return 0, err
-	}
-
-	return newBalance, nil
+	return s.repo.Withdraw(ctx, userID, order, sum)
 }
 
 func (s *BalanceService) GetWithdrawals(ctx context.Context, userID string) ([]models.Withdrawal, error) {
@@ -55,13 +51,13 @@ func (s *BalanceService) GetWithdrawals(ctx context.Context, userID string) ([]m
 	return res, nil
 }
 
-func (s *BalanceService) SaveWithdrawal(ctx context.Context, userID string, order string, sum float64) error {
-	return s.repo.SaveWithdrawal(ctx, userID, order, sum)
-}
+//func (s *BalanceService) SaveWithdrawal(ctx context.Context, userID string, order string, sum float64) error {
+//	return s.repo.SaveWithdrawal(ctx, userID, order, sum)
+//}
 
 type BalanceServiceType interface {
 	GetUserBalance(ctx context.Context, userID string) (float64, float64, error)
-	Withdraw(ctx context.Context, userID, order string, sum float64) (float64, error)
+	Withdraw(ctx context.Context, userID string, order string, sum float64) error
 	GetWithdrawals(ctx context.Context, userID string) ([]models.Withdrawal, error)
-	SaveWithdrawal(ctx context.Context, userID, order string, sum float64) error
+	//	SaveWithdrawal(ctx context.Context, userID, order string, sum float64) error
 }

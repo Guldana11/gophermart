@@ -15,8 +15,8 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-var ErrInsufficientFunds = errors.New("insufficient funds")
-var ErrInvalidOrder = errors.New("invalid order")
+//var ErrInsufficientFunds = errors.New("insufficient funds")
+//var ErrInvalidOrder = errors.New("invalid order")
 
 var _ repository.UserRepository = (*UserRepo)(nil)
 
@@ -103,57 +103,55 @@ func (r *UserRepo) GetUserPoints(ctx context.Context, userID string) (float64, f
 	return current, withdrawn, nil
 }
 
-func (r *UserRepo) WithdrawPoints(ctx context.Context, userID string, order string, sum float64) (float64, error) {
-	var current float64
+func (r *UserRepo) Withdraw(ctx context.Context, userID string, order string, sum float64) error {
 
 	tx, err := r.db.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
-		return 0, err
+		return err
 	}
 	defer tx.Rollback(ctx)
 
-	var exists bool
-	err = tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM withdrawals WHERE order_number = $1)`, order).Scan(&exists)
-	if err != nil {
-		return 0, err
-	}
-	if exists {
-		return 0, service.ErrInvalidOrder
-	}
+	var current float64
+	err = tx.QueryRow(ctx,
+		`SELECT current_balance
+		 FROM user_points
+		 WHERE user_id = $1
+		 FOR UPDATE`,
+		userID,
+	).Scan(&current)
 
-	err = tx.QueryRow(ctx, `SELECT current_balance FROM user_points WHERE user_id = $1 FOR UPDATE`, userID).Scan(&current)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			current = 0
 		} else {
-			return 0, err
+			return err
 		}
 	}
 
-	if sum > current {
-		return current, service.ErrInsufficientFunds
+	if current < sum {
+		return service.ErrInsufficientFunds
 	}
 
-	_, err = tx.Exec(ctx, `
-		UPDATE user_points
-		SET current_balance = current_balance - $1,
-		    withdrawn_points = withdrawn_points + $1
-		WHERE user_id = $2
-	`, sum, userID)
+	_, err = tx.Exec(ctx,
+		`UPDATE user_points
+		 SET current_balance = current_balance - $1
+		 WHERE user_id = $2`,
+		sum, userID,
+	)
 	if err != nil {
-		return 0, err
+		return err
 	}
 
-	_, err = tx.Exec(ctx, `INSERT INTO withdrawals (user_id, order_number, sum) VALUES ($1, $2, $3)`, userID, order, sum)
+	_, err = tx.Exec(ctx,
+		`INSERT INTO withdrawals (user_id, order_number, sum, processed_at)
+		 VALUES ($1, $2, $3, NOW())`,
+		userID, order, sum,
+	)
 	if err != nil {
-		return 0, err
+		return err
 	}
 
-	if err := tx.Commit(ctx); err != nil {
-		return 0, err
-	}
-
-	return current - sum, nil
+	return tx.Commit(ctx)
 }
 
 func (r *UserRepo) SaveWithdrawal(ctx context.Context, userID, order string, sum float64) error {

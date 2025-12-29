@@ -17,7 +17,7 @@ import (
 
 type MockBalanceService struct {
 	GetUserBalanceFunc func(ctx context.Context, userID string) (float64, float64, error)
-	WithdrawFunc       func(ctx context.Context, userID, order string, sum float64) (float64, error)
+	WithdrawFunc       func(ctx context.Context, userID, order string, sum float64) error
 	GetWithdrawalsFunc func(ctx context.Context, userID string) ([]models.Withdrawal, error)
 	SaveWithdrawalFunc func(ctx context.Context, userID string, order string, sum float64) error
 }
@@ -26,7 +26,7 @@ func (m *MockBalanceService) GetUserBalance(ctx context.Context, userID string) 
 	return m.GetUserBalanceFunc(ctx, userID)
 }
 
-func (m *MockBalanceService) Withdraw(ctx context.Context, userID, order string, sum float64) (float64, error) {
+func (m *MockBalanceService) Withdraw(ctx context.Context, userID, order string, sum float64) error {
 	return m.WithdrawFunc(ctx, userID, order, sum)
 }
 
@@ -109,9 +109,8 @@ func TestWithdraw(t *testing.T) {
 		name           string
 		userID         string
 		body           string
-		mockWithdraw   func(ctx context.Context, userID, order string, sum float64) (float64, error)
+		mockWithdraw   func(ctx context.Context, userID, order string, sum float64) error
 		expectedStatus int
-		expectedBody   string
 	}{
 		{
 			name:           "unauthorized",
@@ -129,8 +128,8 @@ func TestWithdraw(t *testing.T) {
 			name:   "invalid order",
 			userID: "user-1",
 			body:   `{"order":"abc","sum":100}`,
-			mockWithdraw: func(ctx context.Context, userID, order string, sum float64) (float64, error) {
-				return 0, service.ErrInvalidOrder
+			mockWithdraw: func(ctx context.Context, userID, order string, sum float64) error {
+				return service.ErrInvalidOrder
 			},
 			expectedStatus: http.StatusUnprocessableEntity,
 		},
@@ -138,8 +137,8 @@ func TestWithdraw(t *testing.T) {
 			name:   "insufficient funds",
 			userID: "user-1",
 			body:   `{"order":"123456","sum":1000}`,
-			mockWithdraw: func(ctx context.Context, userID, order string, sum float64) (float64, error) {
-				return 0, service.ErrInsufficientFunds
+			mockWithdraw: func(ctx context.Context, userID, order string, sum float64) error {
+				return service.ErrInsufficientFunds
 			},
 			expectedStatus: http.StatusPaymentRequired, // 402
 		},
@@ -147,8 +146,8 @@ func TestWithdraw(t *testing.T) {
 			name:   "internal error",
 			userID: "user-1",
 			body:   `{"order":"123456","sum":100}`,
-			mockWithdraw: func(ctx context.Context, userID, order string, sum float64) (float64, error) {
-				return 0, errors.New("db error")
+			mockWithdraw: func(ctx context.Context, userID, order string, sum float64) error {
+				return errors.New("db error")
 			},
 			expectedStatus: http.StatusInternalServerError,
 		},
@@ -156,11 +155,10 @@ func TestWithdraw(t *testing.T) {
 			name:   "success",
 			userID: "user-1",
 			body:   `{"order":"123456","sum":100}`,
-			mockWithdraw: func(ctx context.Context, userID, order string, sum float64) (float64, error) {
-				return 400, nil
+			mockWithdraw: func(ctx context.Context, userID, order string, sum float64) error {
+				return nil
 			},
 			expectedStatus: http.StatusOK,
-			expectedBody:   `{"current":400}`,
 		},
 	}
 
@@ -177,7 +175,11 @@ func TestWithdraw(t *testing.T) {
 			w := httptest.NewRecorder()
 			c, _ := gin.CreateTestContext(w)
 
-			req := httptest.NewRequest(http.MethodPost, "/api/user/balance/withdraw", bytes.NewBufferString(tt.body))
+			req := httptest.NewRequest(
+				http.MethodPost,
+				"/api/user/balance/withdraw",
+				bytes.NewBufferString(tt.body),
+			)
 			req.Header.Set("Content-Type", "application/json")
 			c.Request = req
 
@@ -188,10 +190,7 @@ func TestWithdraw(t *testing.T) {
 			h.Withdraw(c)
 
 			assert.Equal(t, tt.expectedStatus, w.Code)
-
-			if tt.expectedBody != "" {
-				assert.JSONEq(t, tt.expectedBody, w.Body.String())
-			}
+			assert.Empty(t, w.Body.String())
 		})
 	}
 }
