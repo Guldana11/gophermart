@@ -11,6 +11,7 @@ import (
 	"github.com/Guldana11/gophermart/service"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -113,7 +114,24 @@ func (r *UserRepo) Withdraw(ctx context.Context, userID string, order string, su
 	var exists bool
 	err = tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM withdrawals WHERE order_number=$1)`, order).Scan(&exists)
 	if err != nil {
-		return err
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "42P01" {
+			_, err = tx.Exec(ctx, `
+				CREATE TABLE IF NOT EXISTS withdrawals (
+					user_id UUID NOT NULL,
+					order_number TEXT PRIMARY KEY,
+					sum NUMERIC(12,2) NOT NULL,
+					processed_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+					FOREIGN KEY (user_id) REFERENCES user_points(user_id) ON DELETE CASCADE
+				)
+			`)
+			if err != nil {
+				return err
+			}
+			exists = false
+		} else {
+			return err
+		}
 	}
 	if exists {
 		return service.ErrInvalidOrder
@@ -122,17 +140,37 @@ func (r *UserRepo) Withdraw(ctx context.Context, userID string, order string, su
 	var current float64
 	err = tx.QueryRow(ctx,
 		`SELECT current_balance
-		 FROM user_points
-		 WHERE user_id = $1
-		 FOR UPDATE`,
+         FROM user_points
+         WHERE user_id = $1
+         FOR UPDATE`,
 		userID,
 	).Scan(&current)
 
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "42P01" {
+			_, err = tx.Exec(ctx, `
+				CREATE TABLE IF NOT EXISTS user_points (
+					user_id UUID PRIMARY KEY,
+					current_balance NUMERIC(12,2) NOT NULL DEFAULT 0,
+					withdrawn_points NUMERIC(12,2) NOT NULL DEFAULT 0,
+					updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+				)
+			`)
+			if err != nil {
+				return err
+			}
 			_, err = tx.Exec(ctx,
 				`INSERT INTO user_points (user_id, current_balance, withdrawn_points)
-				 VALUES ($1, 0, 0)`, userID)
+                 VALUES ($1, 0, 0)`, userID)
+			if err != nil {
+				return err
+			}
+			current = 0
+		} else if errors.Is(err, pgx.ErrNoRows) {
+			_, err = tx.Exec(ctx,
+				`INSERT INTO user_points (user_id, current_balance, withdrawn_points)
+                 VALUES ($1, 0, 0)`, userID)
 			if err != nil {
 				return err
 			}
@@ -146,20 +184,23 @@ func (r *UserRepo) Withdraw(ctx context.Context, userID string, order string, su
 		return service.ErrInsufficientFunds
 	}
 
-	_, err = tx.Exec(ctx,
+	res, err := tx.Exec(ctx,
 		`UPDATE user_points
-		 SET current_balance = current_balance - $1,
-		     withdrawn_points = withdrawn_points + $1
-		 WHERE user_id = $2`,
+         SET current_balance = current_balance - $1,
+             withdrawn_points = withdrawn_points + $1
+         WHERE user_id = $2`,
 		sum, userID,
 	)
 	if err != nil {
 		return err
 	}
+	if res.RowsAffected() == 0 {
+		return service.ErrInvalidOrder
+	}
 
 	_, err = tx.Exec(ctx,
 		`INSERT INTO withdrawals (user_id, order_number, sum, processed_at)
-		 VALUES ($1, $2, $3, NOW())`,
+         VALUES ($1, $2, $3, NOW())`,
 		userID, order, sum,
 	)
 	if err != nil {
@@ -167,14 +208,6 @@ func (r *UserRepo) Withdraw(ctx context.Context, userID string, order string, su
 	}
 
 	return tx.Commit(ctx)
-}
-
-func (r *UserRepo) SaveWithdrawal(ctx context.Context, userID, order string, sum float64) error {
-	_, err := r.db.Exec(ctx,
-		`INSERT INTO withdrawals (user_id, order_number, sum) VALUES ($1, $2, $3)`,
-		userID, order, sum,
-	)
-	return err
 }
 
 func (r *UserRepo) GetUserWithdrawals(ctx context.Context, userID string) ([]models.Withdrawal, error) {
