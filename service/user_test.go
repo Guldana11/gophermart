@@ -15,6 +15,7 @@ type mockUserRepo struct {
 	CreateUserFunc         func(ctx context.Context, login, password string) (*models.User, error)
 	GetUserByLoginFunc     func(ctx context.Context, login string) (*models.User, error)
 	GetUserWithdrawalsFunc func(ctx context.Context, userID string) ([]models.Withdrawal, error)
+	WithdrawPointsFunc     func(ctx context.Context, userID, order string, sum float64) error
 }
 
 func (m *mockUserRepo) CreateUser(ctx context.Context, login, password string) (*models.User, error) {
@@ -29,8 +30,11 @@ func (m *mockUserRepo) GetUserPoints(ctx context.Context, userID string) (float6
 	return 100, 0, nil
 }
 
-func (m *mockUserRepo) WithdrawPoints(ctx context.Context, userID string, order string, sum float64) (float64, error) {
-	return 100 - sum, nil
+func (m *mockUserRepo) Withdraw(ctx context.Context, userID string, order string, sum float64) error {
+	if m.WithdrawPointsFunc != nil {
+		return m.WithdrawPointsFunc(ctx, userID, order, sum)
+	}
+	return nil
 }
 
 func (m *mockUserRepo) GetUserWithdrawals(ctx context.Context, userID string) ([]models.Withdrawal, error) {
