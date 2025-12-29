@@ -20,26 +20,18 @@ func (s *BalanceService) GetUserBalance(ctx context.Context, userID string) (cur
 	return s.repo.GetUserPoints(ctx, userID)
 }
 
-var orderRegexp = regexp.MustCompile(`^\d+$`)
+var orderRegexp = regexp.MustCompile(`^\d{1,20}$`)
 
 func (s *BalanceService) Withdraw(ctx context.Context, userID string, order string, sum float64) (float64, error) {
 	if order == "" || !orderRegexp.MatchString(order) {
 		return 0, ErrInvalidOrder
 	}
-
 	if sum <= 0 {
 		return 0, ErrInvalidOrder
 	}
 
 	newBalance, err := s.repo.WithdrawPoints(ctx, userID, order, sum)
 	if err != nil {
-		if err == ErrInsufficientFunds {
-			return 0, ErrInsufficientFunds
-		}
-		return 0, err
-	}
-
-	if err := s.repo.SaveWithdrawal(ctx, userID, order, sum); err != nil {
 		return 0, err
 	}
 

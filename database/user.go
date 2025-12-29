@@ -8,6 +8,7 @@ import (
 
 	"github.com/Guldana11/gophermart/models"
 	"github.com/Guldana11/gophermart/repository"
+	"github.com/Guldana11/gophermart/service"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -113,23 +114,18 @@ func (r *UserRepo) WithdrawPoints(ctx context.Context, userID string, order stri
 
 	var exists bool
 	err = tx.QueryRow(ctx,
-		`SELECT EXISTS (
-			SELECT 1 FROM withdrawals WHERE order_number = $1
-		)`,
+		`SELECT EXISTS (SELECT 1 FROM withdrawals WHERE order_number = $1)`,
 		order,
 	).Scan(&exists)
 	if err != nil {
 		return 0, err
 	}
 	if exists {
-		return 0, ErrInvalidOrder
+		return 0, service.ErrInvalidOrder
 	}
 
 	err = tx.QueryRow(ctx,
-		`SELECT current_balance
-		 FROM user_points
-		 WHERE user_id = $1
-		 FOR UPDATE`,
+		`SELECT current_balance FROM user_points WHERE user_id = $1 FOR UPDATE`,
 		userID,
 	).Scan(&current)
 	if err != nil {
@@ -137,7 +133,7 @@ func (r *UserRepo) WithdrawPoints(ctx context.Context, userID string, order stri
 	}
 
 	if sum > current {
-		return current, ErrInsufficientFunds
+		return 0, service.ErrInsufficientFunds
 	}
 
 	_, err = tx.Exec(ctx,
@@ -166,7 +162,6 @@ func (r *UserRepo) WithdrawPoints(ctx context.Context, userID string, order stri
 
 	return current - sum, nil
 }
-
 func (r *UserRepo) SaveWithdrawal(ctx context.Context, userID, order string, sum float64) error {
 	_, err := r.db.Exec(ctx,
 		`INSERT INTO withdrawals (user_id, order_number, sum) VALUES ($1, $2, $3)`,
@@ -177,7 +172,7 @@ func (r *UserRepo) SaveWithdrawal(ctx context.Context, userID, order string, sum
 
 func (r *UserRepo) GetUserWithdrawals(ctx context.Context, userID string) ([]models.Withdrawal, error) {
 	rows, err := r.db.Query(ctx,
-		`SELECT order_id, sum, created_at
+		`SELECT order_number, sum, created_at
 		 FROM withdrawals
 		 WHERE user_id = $1
 		 ORDER BY created_at DESC`,
@@ -191,9 +186,11 @@ func (r *UserRepo) GetUserWithdrawals(ctx context.Context, userID string) ([]mod
 	var res []models.Withdrawal
 	for rows.Next() {
 		var w models.Withdrawal
-		if err := rows.Scan(&w.Order, &w.Sum, &w.ProcessedAt); err != nil {
+		var createdAt time.Time
+		if err := rows.Scan(&w.Order, &w.Sum, &createdAt); err != nil {
 			return nil, err
 		}
+		w.ProcessedAt = createdAt
 		res = append(res, w)
 	}
 

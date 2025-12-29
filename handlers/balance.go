@@ -63,11 +63,6 @@ func (h *UserHandler) Withdraw(c *gin.Context) {
 		return
 	}
 
-	if err := h.BalanceService.SaveWithdrawal(c.Request.Context(), userID, req.Order, req.Sum); err != nil {
-		c.AbortWithStatus(http.StatusInternalServerError)
-		return
-	}
-
 	c.JSON(http.StatusOK, models.WithdrawResponse{
 		Current: newBalance,
 	})
