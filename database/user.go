@@ -113,10 +113,7 @@ func (r *UserRepo) WithdrawPoints(ctx context.Context, userID string, order stri
 	defer tx.Rollback(ctx)
 
 	var exists bool
-	err = tx.QueryRow(ctx,
-		`SELECT EXISTS (SELECT 1 FROM withdrawals WHERE order_number = $1)`,
-		order,
-	).Scan(&exists)
+	err = tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM withdrawals WHERE order_number = $1)`, order).Scan(&exists)
 	if err != nil {
 		return 0, err
 	}
@@ -124,34 +121,30 @@ func (r *UserRepo) WithdrawPoints(ctx context.Context, userID string, order stri
 		return 0, service.ErrInvalidOrder
 	}
 
-	err = tx.QueryRow(ctx,
-		`SELECT current_balance FROM user_points WHERE user_id = $1 FOR UPDATE`,
-		userID,
-	).Scan(&current)
+	err = tx.QueryRow(ctx, `SELECT current_balance FROM user_points WHERE user_id = $1 FOR UPDATE`, userID).Scan(&current)
 	if err != nil {
-		return 0, err
+		if errors.Is(err, pgx.ErrNoRows) {
+			current = 0
+		} else {
+			return 0, err
+		}
 	}
 
 	if sum > current {
-		return 0, service.ErrInsufficientFunds
+		return current, service.ErrInsufficientFunds
 	}
 
-	_, err = tx.Exec(ctx,
-		`UPDATE user_points
-		 SET current_balance = current_balance - $1,
-		     withdrawn_points = withdrawn_points + $1
-		 WHERE user_id = $2`,
-		sum, userID,
-	)
+	_, err = tx.Exec(ctx, `
+		UPDATE user_points
+		SET current_balance = current_balance - $1,
+		    withdrawn_points = withdrawn_points + $1
+		WHERE user_id = $2
+	`, sum, userID)
 	if err != nil {
 		return 0, err
 	}
 
-	_, err = tx.Exec(ctx,
-		`INSERT INTO withdrawals (user_id, order_number, sum)
-		 VALUES ($1, $2, $3)`,
-		userID, order, sum,
-	)
+	_, err = tx.Exec(ctx, `INSERT INTO withdrawals (user_id, order_number, sum) VALUES ($1, $2, $3)`, userID, order, sum)
 	if err != nil {
 		return 0, err
 	}
@@ -162,6 +155,7 @@ func (r *UserRepo) WithdrawPoints(ctx context.Context, userID string, order stri
 
 	return current - sum, nil
 }
+
 func (r *UserRepo) SaveWithdrawal(ctx context.Context, userID, order string, sum float64) error {
 	_, err := r.db.Exec(ctx,
 		`INSERT INTO withdrawals (user_id, order_number, sum) VALUES ($1, $2, $3)`,
