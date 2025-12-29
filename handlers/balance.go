@@ -3,6 +3,7 @@ package handlers
 import (
 	"log"
 	"net/http"
+	"sort"
 	"strings"
 
 	"github.com/Guldana11/gophermart/models"
@@ -85,9 +86,14 @@ func (h *UserHandler) GetWithdrawals(c *gin.Context) {
 		return
 	}
 
-	if withdrawals == nil {
-		withdrawals = []models.Withdrawal{}
+	if len(withdrawals) == 0 {
+		c.Status(http.StatusNoContent)
+		return
 	}
+
+	sort.SliceStable(withdrawals, func(i, j int) bool {
+		return withdrawals[i].ProcessedAt.After(withdrawals[j].ProcessedAt)
+	})
 
 	c.JSON(http.StatusOK, withdrawals)
 }
