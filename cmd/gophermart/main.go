@@ -22,6 +22,11 @@ func main() {
 		log.Fatal("DATABASE_URI is not set")
 	}
 
+	accrualAddr := os.Getenv("ACCRUAL_SYSTEM_ADDRESS")
+	if accrualAddr == "" {
+		log.Fatal("ACCRUAL_SYSTEM_ADDRESS is empty")
+	}
+
 	if err := database.Migrate(dbURL); err != nil {
 		log.Fatalf("Failed to migrate database: %v", err)
 	}
@@ -34,7 +39,7 @@ func main() {
 
 	userSvc := service.NewUserService(userRepo)
 	orderSvc := service.NewOrderService(orderRepo)
-	loyaltySvc := service.NewLoyaltyService()
+	loyaltySvc := service.NewLoyaltyService(accrualAddr)
 
 	orderHandler := handlers.NewOrderHandler(orderSvc, loyaltySvc)
 	balanceSvc := service.NewBalanceService(userRepo)

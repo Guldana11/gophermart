@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"strings"
+	"time"
 
 	"github.com/Guldana11/gophermart/models"
 	"github.com/Guldana11/gophermart/repository"
@@ -51,13 +52,15 @@ func (s *orderService) UploadOrder(ctx context.Context, userID, orderNumber stri
 	}
 
 	order := models.Order{
-		UserID: userID,
-		Number: orderNumber,
+		UserID:     userID,
+		Number:     orderNumber,
+		Status:     "NEW",
+		Accrual:    0,
+		UploadedAt: time.Now(),
 	}
 
 	return s.repo.CreateOrder(ctx, order)
 }
-
 func (s *orderService) GetOrders(ctx context.Context, userID string) ([]models.Order, error) {
 	return s.repo.GetOrdersByUser(ctx, userID)
 }
