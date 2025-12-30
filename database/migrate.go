@@ -3,7 +3,6 @@ package database
 import (
 	"database/sql"
 	"fmt"
-	"path/filepath"
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
@@ -23,19 +22,8 @@ func Migrate(dbURL string) error {
 		return fmt.Errorf("failed to create migrate driver: %w", err)
 	}
 
-	relPath := "./migrations"
-
-	absPath, err := filepath.Abs(relPath)
-	if err != nil {
-		return fmt.Errorf("failed to get absolute migrations path: %w", err)
-	}
-
-	sourceURL := "file://" + absPath
-
-	fmt.Println("migration source:", sourceURL)
-
 	m, err := migrate.NewWithDatabaseInstance(
-		sourceURL,
+		"file://migrations",
 		"postgres",
 		driver,
 	)

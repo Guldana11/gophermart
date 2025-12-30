@@ -31,7 +31,10 @@ func main() {
 		log.Fatalf("Failed to migrate database: %v", err)
 	}
 
-	dbPool := database.InitDB()
+	dbPool, err := database.InitDB(dbURL)
+	if err != nil {
+		log.Fatalf("Failed to init db pool: %v", err)
+	}
 	defer dbPool.Close()
 
 	userRepo := database.NewUserRepo(dbPool)
@@ -40,13 +43,12 @@ func main() {
 	userSvc := service.NewUserService(userRepo)
 	orderSvc := service.NewOrderService(orderRepo)
 	loyaltySvc := service.NewLoyaltyService(accrualAddr)
+	balanceSvc := service.NewBalanceService(userRepo)
 
 	orderHandler := handlers.NewOrderHandler(orderSvc, loyaltySvc)
-	balanceSvc := service.NewBalanceService(userRepo)
 	userHandler := handlers.NewUserHandler(balanceSvc)
 
 	r := gin.Default()
-
 	r.POST("/api/user/register", handlers.RegisterHandler(userSvc))
 	r.POST("/api/user/login", handlers.LoginHandler(userSvc))
 
@@ -59,7 +61,6 @@ func main() {
 		auth.GET("/user/balance", userHandler.GetBalance)
 		auth.POST("/user/balance/withdraw", userHandler.Withdraw)
 		auth.GET("/user/withdrawals", userHandler.GetWithdrawals)
-
 	}
 
 	log.Println("server started at :8080")

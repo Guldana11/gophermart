@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"log"
 	"time"
 
 	"github.com/Guldana11/gophermart/models"
@@ -183,6 +184,7 @@ func (r *UserRepo) GetUserWithdrawals(ctx context.Context, userID string) ([]mod
 		return nil, err
 	}
 	defer rows.Close()
+	log.Println("GetUserWithdrawals: querying withdrawals table")
 
 	withdrawals := make([]models.Withdrawal, 0)
 	for rows.Next() {
@@ -195,6 +197,9 @@ func (r *UserRepo) GetUserWithdrawals(ctx context.Context, userID string) ([]mod
 			return nil, err
 		}
 		withdrawals = append(withdrawals, w)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 
 	return withdrawals, nil
