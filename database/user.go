@@ -184,16 +184,18 @@ func (r *UserRepo) GetUserWithdrawals(ctx context.Context, userID string) ([]mod
 	}
 	defer rows.Close()
 
-	var res []models.Withdrawal
+	withdrawals := make([]models.Withdrawal, 0)
 	for rows.Next() {
 		var w models.Withdrawal
-		var processedAt time.Time
-		if err := rows.Scan(&w.OrderNumber, &w.Sum, &processedAt); err != nil {
+		if err := rows.Scan(
+			&w.OrderNumber,
+			&w.Sum,
+			&w.ProcessedAt,
+		); err != nil {
 			return nil, err
 		}
-		w.ProcessedAt = processedAt
-		res = append(res, w)
+		withdrawals = append(withdrawals, w)
 	}
 
-	return res, nil
+	return withdrawals, nil
 }

@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"log"
 	"regexp"
 
 	"github.com/Guldana11/gophermart/models"
@@ -36,22 +35,13 @@ func (s *BalanceService) Withdraw(ctx context.Context, userID string, order stri
 }
 
 func (s *BalanceService) GetWithdrawals(ctx context.Context, userID string) ([]models.Withdrawal, error) {
-	log.Printf("BalanceService.GetWithdrawals called with userID=%s", userID)
 
-	rows, err := s.repo.GetUserWithdrawals(ctx, userID)
+	withdrawals, err := s.repo.GetUserWithdrawals(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
 
-	res := make([]models.Withdrawal, len(rows))
-	for i, w := range rows {
-		res[i] = models.Withdrawal{
-			OrderNumber: w.OrderNumber,
-			Sum:         w.Sum,
-			ProcessedAt: w.ProcessedAt,
-		}
-	}
-	return res, nil
+	return withdrawals, nil
 }
 
 //func (s *BalanceService) SaveWithdrawal(ctx context.Context, userID string, order string, sum float64) error {
