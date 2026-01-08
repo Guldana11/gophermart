@@ -11,6 +11,10 @@ import (
 
 var jwtKey []byte
 
+func SetJWTKey(key []byte) {
+	jwtKey = key
+}
+
 func AuthMiddlewareJWT() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		tokenStr, err := c.Cookie("access_token")

@@ -14,8 +14,15 @@ import (
 
 func main() {
 	if err := godotenv.Load(); err != nil {
+
 		log.Println("No .env file found, using system environment variables")
 	}
+
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		log.Fatal("JWT_SECRET is not set")
+	}
+	middleware.SetJWTKey([]byte(jwtSecret))
 
 	dbURL := os.Getenv("DATABASE_URI")
 	if dbURL == "" {

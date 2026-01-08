@@ -88,5 +88,10 @@ func (h *UserHandler) GetWithdrawals(c *gin.Context) {
 		return
 	}
 
+	if len(withdrawals) == 0 {
+		c.Status(http.StatusNoContent)
+		return
+	}
+
 	c.JSON(http.StatusOK, withdrawals)
 }
