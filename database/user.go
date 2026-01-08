@@ -175,7 +175,7 @@ func (r *UserRepo) Withdraw(ctx context.Context, userID string, order string, su
 func (r *UserRepo) GetUserWithdrawals(ctx context.Context, userID string) ([]models.Withdrawal, error) {
 	rows, err := r.db.Query(ctx,
 		`SELECT order_number, sum, processed_at
-		 FROM withdrawals
+		 FROM public.withdrawals
 		 WHERE user_id = $1
 		 ORDER BY processed_at DESC`,
 		userID,

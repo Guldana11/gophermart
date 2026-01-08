@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"os"
 
@@ -14,7 +15,6 @@ import (
 
 func main() {
 	if err := godotenv.Load(); err != nil {
-
 		log.Println("No .env file found, using system environment variables")
 	}
 
@@ -37,12 +37,35 @@ func main() {
 	if err := database.Migrate(dbURL); err != nil {
 		log.Fatalf("Failed to migrate database: %v", err)
 	}
+	log.Println("✅ Migrations applied successfully")
 
 	dbPool, err := database.InitDB(dbURL)
 	if err != nil {
 		log.Fatalf("Failed to init db pool: %v", err)
 	}
 	defer dbPool.Close()
+	log.Println("✅ Database connection established")
+
+	ctx := context.Background()
+
+	tables := []string{"user_points", "withdrawals", "orders", "users"}
+	for _, tbl := range tables {
+		var exists bool
+		err := dbPool.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT FROM information_schema.tables 
+			WHERE table_schema = 'public' AND table_name = $1
+		)`, tbl).Scan(&exists)
+		if err != nil {
+			log.Printf("❌ Error checking table %s: %v", tbl, err)
+			continue
+		}
+		if exists {
+			log.Printf("✅ Table %s exists", tbl)
+		} else {
+			log.Printf("❌ Table %s DOES NOT exist", tbl)
+		}
+	}
 
 	userRepo := database.NewUserRepo(dbPool)
 	orderRepo := database.NewOrderRepo(dbPool)
